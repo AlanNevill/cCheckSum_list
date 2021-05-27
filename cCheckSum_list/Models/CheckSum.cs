@@ -33,9 +33,9 @@ namespace cCheckSum_list
         public int TimerMs { get; set; }
 
         [StringLength(200)]
-        public string Notes { get; set; }
+        public string Notes { get; set; } = "";
 
-        public DateTime CreateDateTime { get; set; }
+        public DateTime? CreateDateTime { get; set; }
 
         [StringLength(20)]
         public string SCreateDateTime { get; set; }

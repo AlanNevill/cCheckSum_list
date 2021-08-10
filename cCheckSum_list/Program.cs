@@ -107,7 +107,7 @@ namespace cCheckSum_list
             }
             Log.Information($"Finished reading {_count:N0} files. {_invalidCount:N0} did not have valid DateTimeDigitized nor DateTime EXIF tags.");
 
-            // insert the list of CheckSums, list2Insert into the DB table CheckSum
+            // insert the list of CheckSums (list2Insert) into the DB table POPS.CheckSum
             CheckSum_ins2(list2Insert);
 
             _stopWatch.Stop();
@@ -191,7 +191,7 @@ namespace cCheckSum_list
 
             foreach (var checkSum in list2Insert)
             {
-                // create the SqlParameters for the stored procedure
+                // create the SqlParameters for the stored procedure using Dapper dynamic parameters
                 var p = new DynamicParameters();
                 p.Add("@SHA", checkSum.SHA);
                 p.Add("@Folder", checkSum.Folder);

@@ -67,7 +67,7 @@ namespace cCheckSum_list
             int _count = 0;
             List<CheckSum> list2Insert = new();
 
-            Log.Information($"cCheckSum_list starting\n\tRoot folder: {folder.FullName}\n\tTruncate CheckSum: {replace}");
+            Log.Information($"cCheckSum_list starting\n\tLogInvalid: {LogInvalid}\n\tRoot folder: {folder.FullName}\n\tTruncate CheckSum: {replace}");
 
             // if --replace is true then truncate the CheckSum table
             if (replace)
@@ -132,6 +132,20 @@ namespace cCheckSum_list
             {
                 reader = new(fileInfo.FullName);
             }
+            catch (ExifLibException elex) when (elex.Message.Contains("File is not a valid JPEG"))
+            {
+                if (_logInvalid) { Log.Error($"File is not a valid JPEG: {fileInfo.FullName}"); }
+
+                _invalidCount++;
+                return (CreateDateTime: _createDateTime, sCreateDateTime: "File not valid JPEG");
+            }
+            catch (ExifLibException elex) when (elex.Message.Contains("Error indexing EXIF tags"))
+            {
+                if (_logInvalid) { Log.Error($"Error indexing EXIF tag: {fileInfo.FullName}"); }
+
+                _invalidCount++;
+                return (CreateDateTime: _createDateTime, sCreateDateTime: "Error indexing EXIF tag");
+            }            
             catch (Exception exc)
             {
                 if (exc.Message.Contains("Unable to locate EXIF content"))

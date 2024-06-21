@@ -2,7 +2,7 @@
   "profiles": {
     "cCheckSum_list": {
       "commandName": "Project",
-      "commandLineArgs": "Load --folder \"C:\\Users\\alann\\OneDrive\\Photos\\2005 Paul & Sarah - Wedding\" --replace false"
+      "commandLineArgs": "Load --folder \"C:\\Users\\alann\\OneDrive\\Photos\\2005 Paul & Sarah - Wedding\" --replace true"
     }
   }
 }

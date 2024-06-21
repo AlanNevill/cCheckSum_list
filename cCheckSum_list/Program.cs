@@ -87,7 +87,7 @@ class Program
         if ( replace )
         {
             using IDbConnection db = new SqlConnection( _connectionString );
-            db.Execute( "truncate table dbo.CheckSum" );
+            db.Execute( "delete from dbo.CheckSum" );
         }
 
         // get an array of FileInfo objects from the folder tree
@@ -96,6 +96,8 @@ class Program
 
         foreach ( FileInfo fi in _files )
         {
+            Log.Information( $"ProcessJPGs - fi.FullName: {fi.FullName}" );
+
             CheckSum checkSum = new()
             {
                 Folder = fi.DirectoryName,
@@ -119,7 +121,6 @@ class Program
                 continue;
             }
 
-            Log.Information( $"ProcessJPGs - fi.FullName: {fi.FullName}" );
             //foreach ( var directory in directories )
             //    foreach ( var tag in directory.Tags )
             //Log.Information( $"{directory.Name} - {tag.Name} = {tag.Description}"
@@ -135,120 +136,28 @@ class Program
             }
             else
             {
-                Log.Warning( $"ProcessJPGs - dateTime is not a date: {dateTime}" );
+                Log.Warning( $"ProcessJPGs - dateTime is not a date: [{dateTime}]" );
             }
 
             _count++;
             if ( _count % 1000 == 0 )
             {
-                Log.Information( $"{_count:N0}. Completed: {((_count * 100) / _files.Length)}%. Now processing folder: {fi.DirectoryName}" );
+                Log.Information( $"ProcessJPGs - {_count:N0}. Completed: {((_count * 100) / _files.Length)}%. Now processing folder: {fi.DirectoryName}" );
             }
 
-            checkSum.SHA = calcShaHash2( fi );
+            checkSum.SHA = CalculateSha256Checksum( fi );
 
             // add the CheckSum object to the list2Insert
             list2Insert.Add( checkSum );
         } // end of foreach
 
-
-        //foreach ( FileInfo fi in _files )
-        //{
-        //    // get the EXIF DateTime or DateTimeDigitized from the JPG file
-        //    (DateTime? _CreateDateTime, string _sCreateDateTime) = ImageEXIF( fi );
-
-        //    // instantiate a new CheckSum object for the file
-        //    var checkSum = new CheckSum
-        //    {
-        //        SHA = calcShaHash2(fi),
-        //        Folder = fi.DirectoryName,
-        //        TheFileName = fi.Name,
-        //        FileExt = fi.Extension,
-        //        FileSize = (int)fi.Length,
-        //        FileCreateDt = fi.CreationTime,
-        //        CreateDateTime = _CreateDateTime,
-        //        SCreateDateTime = _sCreateDateTime
-        //    };
-
-        //    list2Insert.Add( checkSum );
-
-        //    _count++;
-        //    if ( _count % 1000 == 0 )
-        //    {
-        //        Log.Information( $"{_count:N0}. Completed: {((_count * 100) / _files.Length)}%. Now processing folder: {fi.DirectoryName}" );
-        //    }
-        //}
-        Log.Information( $"Finished reading {_count:N0} files. {_invalidCount:N0} did not have valid DateTimeDigitized nor DateTime EXIF tags." );
+        Log.Information( $"ProcessJPGs - Finished reading {_count:N0} files. {_invalidCount:N0} did not have valid DateTimeDigitized nor DateTime EXIF tags." );
 
         // insert the list of CheckSums (list2Insert) into the DB table POPS.CheckSum
         CheckSum_ins2( list2Insert );
 
         _stopWatch.Stop();
-        Log.Information( $"Processing complete in {_stopWatch.Elapsed.TotalSeconds} secs" );
-    }
-
-
-
-    /// <summary>
-    /// Extract EXIF DateTimeDigitized or DateTime from the JPG file passed in
-    /// </summary>
-    /// <param name="fileInfo">A FileInfo object JPG file</param>
-    /// <returns>A tuple: DateTime CreateDateTime, string sCreateDateTime</returns>
-    private static (DateTime? CreateDateTime, string sCreateDateTime) ImageEXIF(FileInfo fileInfo)
-    {
-
-        DateTime? _createDateTime = null;
-        DateTime? _CreateDateTime = null;
-
-        //ExifReader reader;
-
-        // create a EXIF reader. If no EXIF data then return CreateDateTime: null & sCreateDateTime: "Date not found"
-        //try
-        //{
-        //    reader = new( fileInfo.FullName );
-        //}
-        //catch ( ExifLibException elex ) when ( elex.Message.Contains( "File is not a valid JPEG" ) )
-        //{
-        //    if ( _logInvalid ) { Log.Error( $"File is not a valid JPEG: {fileInfo.FullName}" ); }
-
-        //    _invalidCount++;
-        //    return (CreateDateTime: _createDateTime, sCreateDateTime: "File not valid JPEG");
-        //}
-        //catch ( ExifLibException elex ) when ( elex.Message.Contains( "Error indexing EXIF tags" ) )
-        //{
-        //    if ( _logInvalid ) { Log.Error( $"Error indexing EXIF tag: {fileInfo.FullName}" ); }
-
-        //    _invalidCount++;
-        //    return (CreateDateTime: _createDateTime, sCreateDateTime: "Error indexing EXIF tag");
-        //}
-        //catch ( Exception exc )
-        //{
-        //    if ( exc.Message.Contains( "Unable to locate EXIF content" ) )
-        //    {
-        //        if ( _logInvalid ) { Log.Error( $"Unable to locate EXIF content in : {fileInfo.FullName}" ); }
-
-        //        _invalidCount++;
-        //        return (CreateDateTime: _createDateTime, sCreateDateTime: "Date not found");
-        //    }
-        //    else
-        //    {
-        //        throw;
-        //    }
-        //}
-
-        // EXIF data found. Now try to extract DateTimeDigitized or DateTime ExifTags
-        //if ( !reader.GetTagValue<DateTime>( ExifTags.DateTimeDigitized, out _CreateDateTime ) )
-        //{
-        //    if ( !reader.GetTagValue<DateTime>( ExifTags.DateTime, out _CreateDateTime ) )
-        //    {
-        //        // no DateTimeDigitized or DateTime ExifTags found so return CreateDateTime: null & sCreateDateTime: "Date not found"
-        //        if ( _logInvalid ) { Log.Error( $"ExifTags.DateTime not found in : {fileInfo.FullName}" ); }
-        //        _invalidCount++;
-        //        return (CreateDateTime: _createDateTime, sCreateDateTime: "Date not found");
-        //    }
-        //}
-
-        // return a valid date and string date
-        return (CreateDateTime: _CreateDateTime, sCreateDateTime: _CreateDateTime.ToString());
+        Log.Information( $"ProcessJPGs - Processing complete in {_stopWatch.Elapsed.TotalSeconds} secs" );
     }
 
 
@@ -258,7 +167,7 @@ class Program
     /// <param name="list2Insert">A list of CheckSum rows</param>
     private static void CheckSum_ins2(List<CheckSum> list2Insert)
     {
-        Log.Information( $"Starting insert of {list2Insert.Count:N0} CheckSum rows." );
+        Log.Information( $"CheckSum_ins2 - Starting insert of {list2Insert.Count:N0} CheckSum rows." );
         Stopwatch insertStopWatch = new();
         insertStopWatch.Start();
         IDbConnection db = new SqlConnection( _connectionString );
@@ -282,10 +191,10 @@ class Program
         }
 
         insertStopWatch.Stop();
-        Log.Information( $"Finished insert of {list2Insert.Count:N0} CheckSum rows in {insertStopWatch.Elapsed.TotalSeconds} secs." );
+        Log.Information( $"CheckSum_ins2 - Finished insert of {list2Insert.Count:N0} CheckSum rows in {insertStopWatch.Elapsed.TotalSeconds} secs." );
     }
 
-    public static string calcShaHash2(FileInfo fileInfo)
+    public static string CalculateSha256Checksum(FileInfo fileInfo)
     {
         // calculate the SHA256 checkSum for the file and return it with the elapsed processing time using a tuple
         FileStream fs = fileInfo.OpenRead();

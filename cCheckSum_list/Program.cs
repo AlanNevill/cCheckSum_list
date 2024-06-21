@@ -21,6 +21,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
 
 namespace cCheckSum_list;
 
@@ -94,10 +95,22 @@ class Program
 
         // get an array of FileInfo objects from the folder tree
         FileInfo[] _files = folder.GetFiles( "*.JPG", SearchOption.AllDirectories );
-        Log.Information( $"Found {_files.Length:N0} *.JPG files to process under folder {folder.FullName}." );
+        Log.Information( $"ProcessJPGs - Found {_files.Length:N0} *.JPG files to process under folder {folder.FullName}." );
 
-        Log.Information( "Using AsParallel().ForAll" );
-        _files.AsParallel().ForAll( ProcessJPG );
+        using ( SerilogTimings.Operation.Time( "ProcessJPGs - Using Parallel.ForEach( _files, ProcessJPG )" ) )
+        {
+            Log.Information( "Using Parallel.ForEach( _files, ProcessJPG )" );
+            Parallel.ForEach( _files, ProcessJPG );
+        }
+
+        //using ( SerilogTimings.Operation.Time( "ProcessJPGs - Using AsParallel().ForAll" ) )
+        //{
+        //    Log.Information( "Using AsParallel().ForAll" );
+        //    _files.AsParallel().ForAll( ProcessJPG );
+        //}
+
+        //Log.Information( "Using AsParallel().ForAll" );
+        //_files.AsParallel().ForAll( ProcessJPG );
 
         //foreach ( FileInfo fi in _files )
         //{

@@ -30,6 +30,10 @@ class Program
     private static Stopwatch _stopWatch = new();
     private static int _invalidCount = 0;
     private static bool _logInvalid;
+    private static int _count = 0;
+    private static List<CheckSum> list2Insert = [];
+
+
 
     /// <summary>
     /// Application entry point
@@ -78,8 +82,6 @@ class Program
     {
         _stopWatch.Start();
         _logInvalid = LogInvalid;
-        int _count = 0;
-        List<CheckSum> list2Insert = [];
 
         Log.Information( $"cCheckSum_list starting\n\tLogInvalid: {LogInvalid}\n\tRoot folder: {folder.FullName}\n\tTruncate CheckSum: {replace}" );
 
@@ -94,62 +96,65 @@ class Program
         FileInfo[] _files = folder.GetFiles( "*.JPG", SearchOption.AllDirectories );
         Log.Information( $"Found {_files.Length:N0} *.JPG files to process under folder {folder.FullName}." );
 
-        foreach ( FileInfo fi in _files )
-        {
-            Log.Information( $"ProcessJPGs - fi.FullName: {fi.FullName}" );
+        Log.Information( "Using AsParallel().ForAll" );
+        _files.AsParallel().ForAll( ProcessJPG );
 
-            CheckSum checkSum = new()
-            {
-                Folder = fi.DirectoryName,
-                TheFileName = fi.Name,
-                FileExt = fi.Extension,
-                FileSize = (int)fi.Length,
-                FileCreateDt = fi.CreationTime,
-            };
+        //foreach ( FileInfo fi in _files )
+        //{
+        //    Log.Information( $"ProcessJPGs - fi.FullName: {fi.FullName}" );
 
-            IEnumerable<MetadataExtractor.Directory> directories = MetadataExtractor.ImageMetadataReader.ReadMetadata( fi.FullName );
-            if ( directories == null )
-            {
-                Log.Warning( $"ProcessJPGs - MetadataExtractor.ImageMetadataReader.ReadMetadata returned null for {fi.FullName}" );
-                continue;
-            }
+        //    CheckSum checkSum = new()
+        //    {
+        //        Folder = fi.DirectoryName,
+        //        TheFileName = fi.Name,
+        //        FileExt = fi.Extension,
+        //        FileSize = (int)fi.Length,
+        //        FileCreateDt = fi.CreationTime,
+        //    };
 
-            var subIfdDirectory = directories.OfType<ExifSubIfdDirectory>().FirstOrDefault();
-            if ( subIfdDirectory == null )
-            {
-                Log.Warning( $"ProcessJPGs - subIfdDirectory is null, {fi.FullName}" );
-                continue;
-            }
+        //    IEnumerable<MetadataExtractor.Directory> directories = MetadataExtractor.ImageMetadataReader.ReadMetadata( fi.FullName );
+        //    if ( directories == null )
+        //    {
+        //        Log.Warning( $"ProcessJPGs - MetadataExtractor.ImageMetadataReader.ReadMetadata returned null for {fi.FullName}" );
+        //        continue;
+        //    }
 
-            //foreach ( var directory in directories )
-            //    foreach ( var tag in directory.Tags )
-            //Log.Information( $"{directory.Name} - {tag.Name} = {tag.Description}"
-            //
-            var dateTime = subIfdDirectory?.GetDescription( ExifDirectoryBase.TagDateTimeOriginal );
+        //    var subIfdDirectory = directories.OfType<ExifSubIfdDirectory>().FirstOrDefault();
+        //    if ( subIfdDirectory == null )
+        //    {
+        //        Log.Warning( $"ProcessJPGs - subIfdDirectory is null, {fi.FullName}" );
+        //        continue;
+        //    }
 
-            var result = (DateTime.TryParseExact( dateTime, "yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture,
-                                     DateTimeStyles.None, out DateTime dateValue ));
+        //    //foreach ( var directory in directories )
+        //    //    foreach ( var tag in directory.Tags )
+        //    //Log.Information( $"{directory.Name} - {tag.Name} = {tag.Description}"
+        //    //
+        //    var dateTime = subIfdDirectory?.GetDescription( ExifDirectoryBase.TagDateTimeOriginal );
 
-            if ( result )
-            {
-                checkSum.CreateDateTime = dateValue;
-            }
-            else
-            {
-                Log.Warning( $"ProcessJPGs - dateTime is not a date: [{dateTime}]" );
-            }
+        //    var result = (DateTime.TryParseExact( dateTime, "yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture,
+        //                             DateTimeStyles.None, out DateTime dateValue ));
 
-            _count++;
-            if ( _count % 1000 == 0 )
-            {
-                Log.Information( $"ProcessJPGs - {_count:N0}. Completed: {((_count * 100) / _files.Length)}%. Now processing folder: {fi.DirectoryName}" );
-            }
+        //    if ( result )
+        //    {
+        //        checkSum.CreateDateTime = dateValue;
+        //    }
+        //    else
+        //    {
+        //        Log.Warning( $"ProcessJPGs - dateTime is not a date: [{dateTime}]" );
+        //    }
 
-            checkSum.SHA = CalculateSha256Checksum( fi );
+        //    _count++;
+        //    if ( _count % 1000 == 0 )
+        //    {
+        //        Log.Information( $"ProcessJPGs - {_count:N0}. Completed: {((_count * 100) / _files.Length)}%. Now processing folder: {fi.DirectoryName}" );
+        //    }
 
-            // add the CheckSum object to the list2Insert
-            list2Insert.Add( checkSum );
-        } // end of foreach
+        //    checkSum.SHA = CalculateSha256Checksum( fi );
+
+        //    // add the CheckSum object to the list2Insert
+        //    list2Insert.Add( checkSum );
+        //} // end of foreach
 
         Log.Information( $"ProcessJPGs - Finished reading {_count:N0} files. {_invalidCount:N0} did not have valid DateTimeDigitized nor DateTime EXIF tags." );
 
@@ -158,6 +163,64 @@ class Program
 
         _stopWatch.Stop();
         Log.Information( $"ProcessJPGs - Processing complete in {_stopWatch.Elapsed.TotalSeconds} secs" );
+    }
+
+    private static void ProcessJPG(FileInfo fi)
+    {
+        //Log.Information( $"ProcessJPG - fi.FullName: {fi.FullName}" );
+
+        CheckSum checkSum = new()
+        {
+            Folder = fi.DirectoryName,
+            TheFileName = fi.Name,
+            FileExt = fi.Extension,
+            FileSize = (int)fi.Length,
+            FileCreateDt = fi.CreationTime,
+        };
+
+        IEnumerable<MetadataExtractor.Directory> directories = MetadataExtractor.ImageMetadataReader.ReadMetadata( fi.FullName );
+        if ( directories == null )
+        {
+            Log.Warning( $"ProcessJPGs - MetadataExtractor.ImageMetadataReader.ReadMetadata returned null for {fi.FullName}" );
+            return;
+        }
+
+        var subIfdDirectory = directories.OfType<ExifSubIfdDirectory>().FirstOrDefault();
+        if ( subIfdDirectory == null )
+        {
+            Log.Warning( $"ProcessJPGs - subIfdDirectory is null, {fi.FullName}" );
+            return;
+        }
+
+        //foreach ( var directory in directories )
+        //    foreach ( var tag in directory.Tags )
+        //Log.Information( $"{directory.Name} - {tag.Name} = {tag.Description}"
+        //
+        var dateTime = subIfdDirectory?.GetDescription( ExifDirectoryBase.TagDateTimeOriginal );
+
+        var result = (DateTime.TryParseExact( dateTime, "yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture,
+                                 DateTimeStyles.None, out DateTime dateValue ));
+
+        if ( result )
+        {
+            checkSum.CreateDateTime = dateValue;
+        }
+        else
+        {
+            _invalidCount++;
+            Log.Warning( $"ProcessJPG - dateTime is not a date: [{dateTime}]" );
+        }
+
+        _count++;
+        if ( _count % 1000 == 0 )
+        {
+            Log.Information( $"ProcessJPG - {_count:N0}. Completed:. Now processing folder: {fi.DirectoryName}" );
+        }
+
+        checkSum.SHA = CalculateSha256Checksum( fi );
+
+        // add the CheckSum object to the list2Insert
+        list2Insert.Add( checkSum );
     }
 
 
